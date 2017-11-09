@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Configuration; 
 using System.Web.Mvc;
 using Microsoft.Azure.KeyVault;
 using Microsoft.Azure.Services.AppAuthentication;
@@ -13,14 +14,11 @@ namespace WebAppKeyVault.Controllers
 
             try
             {
-                var keyVaultClient = new KeyVaultClient(
-                    new KeyVaultClient.AuthenticationCallback(azureServiceTokenProvider.KeyVaultTokenCallback));
 
-                var secret = await keyVaultClient.GetSecretAsync("https://appmsi5kv.vault.azure.net/secrets/secret")
-                    .ConfigureAwait(false);
+                var secret = ConfigurationManager.AppSettings["secret"];
 
-                ViewBag.Secret = $"Secret: {secret.Value}";
-                
+                ViewBag.Secret = $"Secret: {secret}";
+
             }
             catch (Exception exp)
             {

@@ -11,14 +11,18 @@ For Service-to-Azure-Service authentication, the approach so far involved creati
 1. The Azure AD application credentials are typically hard coded in source code. Developers tend to push the code to source repositories as-is, which leads to credentials in source.
 2. The Azure AD application credentials expire, and so need to be renewed, else can lead to application downtime.
 
-With [Managed Service Identity (MSI)](https://docs.microsoft.com/en-us/azure/app-service/app-service-managed-service-identity), both these problems are solved. This sample shows how a Web App can authenticate to Azure Key Vault without the need to explicitly create an Azure AD application or manage its credentials. 
+With [Managed Service Identity (MSI)](https://docs.microsoft.com/en-us/azure/app-service/app-service-managed-service-identity), both these problems are solved. This sample shows how a Web App can authenticate to Azure Key Vault without the need to explicitly create an Azure AD application or manage its credentials.
 
 >Here's another sample that shows how to programatically deploy an ARM template from a .NET Console application running on an Azure VM with a Managed Service Identity (MSI) - [https://github.com/Azure-Samples/windowsvm-msi-arm-dotnet](https://github.com/Azure-Samples/windowsvm-msi-arm-dotnet)
 
 ## Prerequisites
 To run and deploy this sample, you need the following:
-1. An Azure subscription to create an App Service and a Key Vault. 
-2. [Azure CLI 2.0](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest) to run the application on your local development machine.
+1. An Azure subscription to create an App Service and a Key Vault.
+    * [Create your Azure free account today](https://azure.microsoft.com/en-us/free/)
+2. [Visual Studio 2017](https://www.visualstudio.com/)
+    * Install Web development and Azure development workloads.    
+3. [Azure Services Authentication Extension](https://go.microsoft.com/fwlink/?linkid=862354)
+4. [.NET Framework 4.7.1](https://www.microsoft.com/en-us/download/details.aspx?id=56115)
 
 ## Step 1: Create an App Service with a Managed Service Identity (MSI)
 <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FAzure-Samples%2Fapp-service-msi-keyvault-dotnet%2Fmaster%2Fazuredeploy.json" target="_blank">
@@ -30,111 +34,89 @@ Use the "Deploy to Azure" button to deploy an ARM template to create the followi
 2. Key Vault with a secret, and an access policy that grants the App Service access to **Get Secrets**.
 >Note: When filling out the template you will see a textbox labelled 'Key Vault Secret'. Enter a secret value there. A secret with the name 'secret' and value from what you entered will be created in the Key Vault.
 
-Review the resources created using the Azure portal. You should see an App Service and a Key Vault. View the access policies of the Key Vault to see that the App Service has access to it. 
+Review the resources created using the Azure portal. You should see an App Service and a Key Vault. View the access policies of the Key Vault to see that the App Service has access to it.
 
 ## Step 2: Grant yourself data plane access to the Key Vault
-Using the Azure Portal, go to the Key Vault's access policies, and grant yourself **Secret Management** access to the Key Vault. This will allow you to run the application on your local development machine. 
+Using the Azure Portal, go to the Key Vault's access policies, and grant yourself **Secret Management** access to the Key Vault. This will allow you to run the application on your local development machine.
 
 1.	Search for your Key Vault in “Search Resources dialog box” in Azure Portal.
 2.	Select "Overview", and click on Access policies
 3.	Click on "Add New", select "Secret Management" from the dropdown for "Configure from template"
-4.	Click on "Select Principal", add your account 
+4.	Click on "Select Principal", add your account
 5.	Save the Access Policies
 
-## Step 3: Clone the repo 
-Clone the repo to your development machine. 
+## Step 3: Clone the repo
+Clone the repo to your development machine.
 
 The project has two relevant Nuget packages:
-1. Microsoft.Azure.Services.AppAuthentication (preview) - makes it easy to fetch access tokens for Service-to-Azure-Service authentication scenarios. 
-2. Microsoft.Azure.KeyVault - contains methods for interacting with Key Vault. 
+1. Microsoft.Configuration.ConfigurationBuilders.Azure - Enables an application to use Key Vault as a configuration store without changing source code
+2. Microsoft.Configuration.ConfigurationBuilders - Enables an application to use additional configuration stores other than web.config file
 
-The relevant code is in WebAppKeyVault/WebAppKeyVault/Controllers/HomeController.cs file. The **AzureServiceTokenProvider** class (which is part of Microsoft.Azure.Services.AppAuthentication) tries the following methods to get an access token:-
-1. Managed Service Identity (MSI) - for scenarios where the code is deployed to Azure, and the Azure resource supports MSI. 
-2. [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest) (for local development) - Azure CLI version 2.0.12 and above supports the **get-access-token** option. AzureServiceTokenProvider uses this option to get an access token for local development. 
-3. Active Directory Integrated Authentication (for local development). To use integrated Windows authentication, your domain’s Active Directory must be federated with Azure Active Directory. Your application must be running on a domain-joined machine under a user’s domain credentials.
+The HomeController Index class can use the exact same old way to access a configuration setting through ConfigurationManager class, without any code change
 
 ```csharp    
 public async System.Threading.Tasks.Task<ActionResult> Index()
-{
-    AzureServiceTokenProvider azureServiceTokenProvider = new AzureServiceTokenProvider();
+       {
+           AzureServiceTokenProvider azureServiceTokenProvider = new AzureServiceTokenProvider();
 
-    var keyVaultClient = new KeyVaultClient(new KeyVaultClient.AuthenticationCallback(azureServiceTokenProvider.KeyVaultTokenCallback));
+           try
+           {
 
-    var secret = await keyVaultClient.GetSecretAsync("https://keyvaultname.vault.azure.net/secrets/secret").ConfigureAwait(false);
+               var secret = ConfigurationManager.AppSettings["secret"];
 
-    ViewBag.Secret = secret.Value;
+               ViewBag.Secret = $"Secret: {secret}";
 
-    ViewBag.Principal = azureServiceTokenProvider.PrincipalUsed;
-
-    return View();
-}
+           }
 ```
-## Step 4: Replace the key vault name
-In the HomeController.cs file, change the Key Vault name to the one you just created. Replace **KeyVaultName** with the name of your Key Vault. 
 
-## Step 5: Run the application on your local development machine
-AzureServiceTokenProvider will use the developer's security context to get a token to authenticate to Key Vault. This removes the need to create a service principal, and share it with the development team. It also prevents credentials from being checked in to source code. 
-AzureServiceTokenProvider will use **Azure CLI** or **Active Directory Integrated Authentication** to authenticate to Azure AD to get a token. That token will be used to fetch the secret from Azure Key Vault. 
+In web.config file, specify the name of the Key Vault and use the Key Vault configuration builder in appSettings section of web.config file
 
-Azure CLI will work if the following conditions are met:
- 1. You have [Azure CLI 2.0](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli?view=azure-cli-latest) installed. Version 2.0.12 supports the get-access-token option used by AzureServiceTokenProvider. If you have an earlier version, please upgrade. 
- 2. You are logged into Azure CLI. You can login using **az login** command.
- 
-Azure Active Directory Authentication will only work if the following conditions are met:
- 1. Your on-premise active directory is synced with Azure AD. 
- 2. You are running this code on a domain joined machine.   
+```xml
+<configBuilders>
+   <builders>
+     <add name="Environment" type="Microsoft.Configuration.ConfigurationBuilders.EnvironmentConfigBuilder, Microsoft.Configuration.ConfigurationBuilders, Version=1.0.0.0, Culture=neutral" />
+     <add name="Secrets" secretsFile="C:\Users\cawa\Documents\secret.xml" type="Microsoft.Configuration.ConfigurationBuilders.UserSecretsConfigBuilder, Microsoft.Configuration.ConfigurationBuilders, Version=1.0.0.0, Culture=neutral" />
+     <add name="AzureKeyVault" vaultName="replace_with_your_KeyVault_Name" type="Microsoft.Configuration.ConfigurationBuilders.AzureKeyVaultConfigBuilder, Microsoft.Configuration.ConfigurationBuilders.Azure, Version=1.0.0.0, Culture=neutral" />
+   </builders>
+ </configBuilders>
+ <appSettings configBuilders="AzureKeyVault">
+   <add key="webpages:Version" value="3.0.0.0" />
+   <add key="webpages:Enabled" value="false" />
+   <add key="ClientValidationEnabled" value="true" />
+   <add key="UnobtrusiveJavaScriptEnabled" value="true" />
+   <add key="secret" value="" />
+ </appSettings>
+```
+The configBuilders section defines additional configuration stores. For example, it can be environment variables, a file that's saved outside of source control folder, or a Key Vault for secret settings. In appSettings section, specify which configuration builder to use by using the name attribute of the builder. The value in the additional configuration store will replace the value of an entry listed in the appSettings section. For example, the setting "secret" with value equals to an emptry string will be replaced by the actual secret value from the Key Vault.
 
-Since your developer account has access to the Key Vault, you should see the secret on the web page. Principal Used will show type "User" and your user account. 
+Depending on your user scenario, if you are just doing a quick prototype and don't want to provision any Azure resources, use the Secrets configuration builder which can save secrets to any file specified in the secretFile attribute. This can help prevent secrets to be checked in to source control and leaked on Github.
 
-You can also use a service principal to run the application on your local development machine. See the section "Running the application using a service principal" later in the tutorial on how to do this. 
+## Step 4: Run the application on your local development machine
+The Key Vault configuration builder will use the developer's security context to get a token to authenticate to Key Vault. This removes the need to create a service principal, and share it with the development team. It also prevents credentials from being checked in to source code.  
+
+Since your developer account has access to the Key Vault, you should see the secret on the web page. Principal Used will show type "User" and your user account.
+
 
 ## Step 6: Deploy the Web App to Azure
-Use any of the methods outlined on [Deploy your app to Azure App Service](https://docs.microsoft.com/en-us/azure/app-service-web/web-sites-deploy) to publish the Web App to Azure. 
-After you deploy it, browse to the web app. You should see the secret on the web page, and this time the Principal Used will show "App", since it ran under the context of the App Service. 
-The AppId of the MSI will be displayed. 
+Use any of the methods outlined on [Deploy your app to Azure App Service](https://docs.microsoft.com/en-us/azure/app-service-web/web-sites-deploy) to publish the Web App to Azure.
+After you deploy it, browse to the web app. You should see the secret on the web page, and this time the Principal Used will show "App", since it ran under the context of the App Service.
+The AppId of the MSI will be displayed.
 
 ## Summary
-The web app was successfully able to get a secret at runtime from Azure Key Vault using your developer account during development, and using MSI when deployed to Azure, without any code change between local development environment and Azure. 
+The web app was successfully able to get a secret at runtime from Azure Key Vault using your developer account during development, and using MSI when deployed to Azure, without any code change between local development environment and Azure.
 As a result, you did not have to explicitly handle a service principal credential to authenticate to Azure AD to get a token to call Key Vault. You do not have to worry about renewing the service principal credential either, since MSI takes care of that.  
 
-## Running the application using a service principal in local development environment
->Note: It is recommended to use your developer context for local development, since you do not need to create or share a service principal for that. If that does not work for you, you can use a service principal, but do not check in the certificate or secret in source repos, and share them securely.
-
-To run the application using a service principal in the local development environment, follow these steps
-
-Service principal using a certificate:
-1. Create a service principal certificate. Follow steps [here](https://docs.microsoft.com/en-us/azure/key-vault/key-vault-use-from-web-application) to create a service principal and grant it permissions to the Key Vault. 
-2. Set an environment variable named **AzureServicesAuthConnectionString** to **RunAs=App;AppId=AppId;TenantId=TenantId;CertificateThumbprint=Thumbprint;CertificateStoreLocation=CurrentUser**. 
-You need to replace AppId, TenantId, and Thumbprint with actual values from step #1.
-3. Run the application in your local development environment. No code change is required. AzureServiceTokenProvider will use this environment variable and use the certificate to authenticate to Azure AD. 
-
-Service principal using a password:
-1. Create a service principal with a password. Follow steps [here](https://docs.microsoft.com/en-us/azure/key-vault/key-vault-use-from-web-application) to create a service principal and grant it permissions to the Key Vault. 
-2. Set an environment variable named **AzureServicesAuthConnectionString** to **RunAs=App;AppId=AppId;TenantId=TenantId;AppKey=Secret**. You need to replace AppId, TenantId, and Secret with actual values from step #1. 
-3. Run the application in your local development environment. No code change is required. AzureServiceTokenProvider will use this environment variable and use the service principal to authenticate to Azure AD. 
 
 ## Troubleshooting
 
-### Common issues during local development:
-
-1. Azure CLI is not installed, or you are not logged in, or you do not have the latest version. 
-Run **az account get-access-token** to see if Azure CLI shows a token for you. If it says no such program found, please install Azure CLI 2.0. If you have installed it, you may be prompted to login. 
-
-2. AzureServiceTokenProvider cannot find the path for Azure CLI.
-AzureServiceTokenProvider finds Azure CLI at its default install locations. If it cannot find Azure CLI, please set environment variable **AzureCLIPath** to the Azure CLI installation folder. AzureServiceTokenProvider will add the environment variable to the Path environment variable.
-
-3. You are logged into Azure CLI using multiple accounts, or the same account has access to subscriptions in multiple tenants. You get an Access Denied error when trying to fetch secret from Key Vault during local development. 
-Using Azure CLI, set the default subscription to one which has the account you want use, and is in the same tenant as your Key Vault: **az account set --subscription [subscription-id]**. If no output is seen, then it succeeded. Verify the right account is now the default using **az account list**.
-
 ### Common issues when deployed to Azure App Service:
 
-1. MSI is not setup on the App Service. 
+1. MSI is not setup on the App Service.
 
-Check the environment variables MSI_ENDPOINT and MSI_SECRET exist using [Kudu debug console](https://azure.microsoft.com/en-us/resources/videos/super-secret-kudu-debug-console-for-azure-web-sites/). If these environment variables do not exist, MSI is not enabled on the App Service. 
+Check the environment variables MSI_ENDPOINT and MSI_SECRET exist using [Kudu debug console](https://azure.microsoft.com/en-us/resources/videos/super-secret-kudu-debug-console-for-azure-web-sites/). If these environment variables do not exist, MSI is not enabled on the App Service.
 
 ### Common issues across environments:
 
 1. Access denied
 
-The principal used does not have access to the Key Vault. The principal used in show on the web page. Grant that user (in case of developer context) or application "Get secret" access to the Key Vault. 
-
+The principal used does not have access to the Key Vault. The principal used in show on the web page. Grant that user (in case of developer context) or application "Get secret" access to the Key Vault.
