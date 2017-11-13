@@ -10,29 +10,30 @@ author: varunsh-msft
 For Service-to-Azure-Service authentication, the approach so far involved creating an Azure AD application and associated credential, and using that credential to get a token. The sample [here](https://docs.microsoft.com/en-us/azure/key-vault/key-vault-use-from-web-application) shows how this approach is used to authenticate to Azure Key Vault from a Web App. While this approach works well, there are two shortcomings:
 1. The Azure AD application credentials are typically hard coded in source code. Developers tend to push the code to source repositories as-is, which leads to credentials in source.
 2. The Azure AD application credentials expire, and so need to be renewed, else can lead to application downtime.
+3. Requires changing source code. Ideally we want to keep all the changes at configuration level and minimize the amount of source code change.
 
-With [Managed Service Identity (MSI)](https://docs.microsoft.com/en-us/azure/app-service/app-service-managed-service-identity), both these problems are solved. This sample shows how a Web App can authenticate to Azure Key Vault without the need to explicitly create an Azure AD application or manage its credentials.
-
->Here's another sample that shows how to programatically deploy an ARM template from a .NET Console application running on an Azure VM with a Managed Service Identity (MSI) - [https://github.com/Azure-Samples/windowsvm-msi-arm-dotnet](https://github.com/Azure-Samples/windowsvm-msi-arm-dotnet)
+With [Managed Service Identity (MSI)](https://docs.microsoft.com/en-us/azure/app-service/app-service-managed-service-identity), and new ASP.NET configuration builders, all these problems are solved. This sample shows how a Web App can authenticate to Azure Key Vault without the need to manage Azure AD credentials and to change source code.
 
 ## Prerequisites
 To run and deploy this sample, you need the following:
 1. An Azure subscription to create an App Service and a Key Vault.
     * [Create your Azure free account today](https://azure.microsoft.com/en-us/free/)
-2. [Visual Studio 2017](https://www.visualstudio.com/)
+2. [Visual Studio 2017 update 5](https://www.visualstudio.com/)
     * Install Web development and Azure development workloads.    
 3. [Azure Services Authentication Extension](https://go.microsoft.com/fwlink/?linkid=862354)
 4. [.NET Framework 4.7.1](https://www.microsoft.com/en-us/download/details.aspx?id=56115)
 
-## Step 1: Create an App Service with a Managed Service Identity (MSI)
+## Step 1: Create an App Service with a Managed Service Identity (MSI) and Key Vault
 <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FAzure-Samples%2Fapp-service-msi-keyvault-dotnet%2Fmaster%2Fazuredeploy.json" target="_blank">
     <img src="http://azuredeploy.net/deploybutton.png"/>
 </a>
 
-Use the "Deploy to Azure" button to deploy an ARM template to create the following resources:
-1. App Service with MSI.
-2. Key Vault with a secret, and an access policy that grants the App Service access to **Get Secrets**.
->Note: When filling out the template you will see a textbox labelled 'Key Vault Secret'. Enter a secret value there. A secret with the name 'secret' and value from what you entered will be created in the Key Vault.
+Use the "Deploy to Azure" button to create the following resources:
+1. App Service with MSI
+2. Key Vault with a secret
+3. A Key Vault access policy that grants the App Service access to **Get Secrets**
+
+>Note: When filling out the template you will see a textbox labelled 'Key Vault Secret'. Enter your secret value there. A secret in Key Vault with the name 'secret' and value from what you entered will be created in the Key Vault.
 
 Review the resources created using the Azure portal. You should see an App Service and a Key Vault. View the access policies of the Key Vault to see that the App Service has access to it.
 
@@ -52,7 +53,7 @@ The project has two relevant Nuget packages:
 1. Microsoft.Configuration.ConfigurationBuilders.Azure - Enables an application to use Key Vault as a configuration store without changing source code
 2. Microsoft.Configuration.ConfigurationBuilders - Enables an application to use additional configuration stores other than web.config file
 
-The HomeController Index class can use the exact same old way to access a configuration setting through ConfigurationManager class, without any code change
+The HomeController Index class reads a configuration setting through ConfigurationManager class, without any code change
 
 ```csharp    
 public async System.Threading.Tasks.Task<ActionResult> Index()
@@ -69,13 +70,10 @@ public async System.Threading.Tasks.Task<ActionResult> Index()
            }
 ```
 
-In web.config file, specify the name of the Key Vault and use the Key Vault configuration builder in appSettings section of web.config file
-
+In web.config file, specify the Key Vault as a configuration source
 ```xml
 <configBuilders>
    <builders>
-     <add name="Environment" type="Microsoft.Configuration.ConfigurationBuilders.EnvironmentConfigBuilder, Microsoft.Configuration.ConfigurationBuilders, Version=1.0.0.0, Culture=neutral" />
-     <add name="Secrets" secretsFile="C:\Users\cawa\Documents\secret.xml" type="Microsoft.Configuration.ConfigurationBuilders.UserSecretsConfigBuilder, Microsoft.Configuration.ConfigurationBuilders, Version=1.0.0.0, Culture=neutral" />
      <add name="AzureKeyVault" vaultName="replace_with_your_KeyVault_Name" type="Microsoft.Configuration.ConfigurationBuilders.AzureKeyVaultConfigBuilder, Microsoft.Configuration.ConfigurationBuilders.Azure, Version=1.0.0.0, Culture=neutral" />
    </builders>
  </configBuilders>
@@ -87,14 +85,38 @@ In web.config file, specify the name of the Key Vault and use the Key Vault conf
    <add key="secret" value="" />
  </appSettings>
 ```
-The configBuilders section defines additional configuration stores. For example, it can be environment variables, a file that's saved outside of source control folder, or a Key Vault for secret settings. In appSettings section, specify which configuration builder to use by using the name attribute of the builder. The value in the additional configuration store will replace the value of an entry listed in the appSettings section. For example, the setting "secret" with value equals to an emptry string will be replaced by the actual secret value from the Key Vault.
+* Add your Key Vault to the configBuilders section
+* Apply Key Vault configuration builder to the appSetting section
+* Add the setting key to the appSettings section with a dummy value. This value will be replaced by what's in the Key Vault.
 
-Depending on your user scenario, if you are just doing a quick prototype and don't want to provision any Azure resources, use the Secrets configuration builder which can save secrets to any file specified in the secretFile attribute. This can help prevent secrets to be checked in to source control and leaked on Github.
+If you are just doing a quick prototype and don't want to provision any Azure resources, use the Secrets configuration builder. It saves secrets to a file outside of project folder to prevent secrets from being leaked in source control.
+
+```xml
+<configBuilders>
+   <builders>
+     <add name="SecretsFile" secretsFile="C:\Users\AppData\Local\secret.xml" type="Microsoft.Configuration.ConfigurationBuilders.UserSecretsConfigBuilder, Microsoft.Configuration.ConfigurationBuilders, Version=1.0.0.0, Culture=neutral" />
+   </builders>
+ </configBuilders>
+ <appSettings configBuilders="SecretsFile">
+   <add key="webpages:Version" value="3.0.0.0" />
+   <add key="webpages:Enabled" value="false" />
+   <add key="ClientValidationEnabled" value="true" />
+   <add key="UnobtrusiveJavaScriptEnabled" value="true" />
+   <add key="secret" value="" />
+ </appSettings>
+```
+
 
 ## Step 4: Run the application on your local development machine
-The Key Vault configuration builder will use the developer's security context to get a token to authenticate to Key Vault. This removes the need to create a service principal, and share it with the development team. It also prevents credentials from being checked in to source code.  
+Sign-in to Visual Studio using your Azure account.
 
-Since your developer account has access to the Key Vault, you should see the secret on the web page. Principal Used will show type "User" and your user account.
+![Sign-in to Visual Studio](./media/sign-in-visualstudio.png)
+
+The Key Vault configuration builder will use the Visual Studio sign-in account to get a token to authenticate to Key Vault. This removes the need to create a service principal, and share it with the development team. It also prevents credentials from being checked in to source code.  
+
+![Access Key Vault](./media/access-keyvault-visualstudio.png)
+
+Since your developer account has access to the Key Vault, you should see the secret on the web page. Principal Used will show type "VisualStudio" and your user account.
 
 
 ## Step 6: Deploy the Web App to Azure
@@ -108,6 +130,17 @@ As a result, you did not have to explicitly handle a service principal credentia
 
 
 ## Troubleshooting
+
+### Common issues when debugging the application
+
+1. Access denied during local debug
+
+Go to Azure portal to check if the account has permissions to access Key Vault secret.
+
+You can sign-in to multiple accounts in Visual Studio, but when debug the app only one account is used. But default the persionalization account is used. To switch to use another account, go to *Tools | Options | Azure Service Authentication*
+
+![Visual Studio ASAL](./media/ASAL-visualstudio.png)
+
 
 ### Common issues when deployed to Azure App Service:
 
