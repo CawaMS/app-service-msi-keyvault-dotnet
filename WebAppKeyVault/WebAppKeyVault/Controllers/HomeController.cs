@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Configuration; 
+using System.Configuration;
 using System.Web.Mvc;
 using Microsoft.Azure.KeyVault;
 using Microsoft.Azure.Services.AppAuthentication;
