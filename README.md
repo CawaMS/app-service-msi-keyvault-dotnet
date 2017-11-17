@@ -21,7 +21,7 @@ To run and deploy this sample, you need the following:
 2. [Visual Studio 2017 update 5](https://www.visualstudio.com/vs/preview/)
     * Install Web development and Azure development workloads.    
 3. [Azure Services Authentication Extension](https://go.microsoft.com/fwlink/?linkid=862354). To go Visual Studio *Tools | Extensions and Updates* and search for *Azure Services Authentication* online to install the extension.
-4. [.NET Framework 4.7.1](https://www.microsoft.com/en-us/download/details.aspx?id=56115)
+4. [.NET Framework 4.7.1](https://www.microsoft.com/en-us/download/details.aspx?id=56115) and [.NET 4.7.1 Targeting Pack for Development](https://www.microsoft.com/en-us/download/confirmation.aspx?id=56119)
 
 ## Step 1: Create an App Service with a Managed Service Identity (MSI) and Key Vault
 <a href="https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FAzure-Samples%2Fapp-service-msi-keyvault-dotnet%2Fmaster%2Fazuredeploy.json" target="_blank">
