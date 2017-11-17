@@ -49,16 +49,14 @@ Using the Azure Portal, go to the Key Vault's access policies, and grant yoursel
 ## Step 3: Clone the repo
 Clone the repo to your development machine.
 
-The project has two relevant Nuget packages:
-1. Microsoft.Configuration.ConfigurationBuilders.Azure - Enables an application to use Key Vault as a configuration store without changing source code
-2. Microsoft.Configuration.ConfigurationBuilders - Enables an application to use additional configuration stores other than web.config file
+The project includes the following Nuget packages:
+```Microsoft.Configuration.ConfigurationBuilders.Azure``` - Enables an application to use Key Vault as a configuration store without changing source code
 
 The HomeController Index class reads a configuration setting through ConfigurationManager class, without any code change
 
 ```csharp    
 public async System.Threading.Tasks.Task<ActionResult> Index()
        {
-           AzureServiceTokenProvider azureServiceTokenProvider = new AzureServiceTokenProvider();
 
            try
            {
