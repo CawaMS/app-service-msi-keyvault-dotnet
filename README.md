@@ -116,6 +116,7 @@ The Key Vault configuration builder will use the Visual Studio sign-in account t
 
 Since your developer account has access to the Key Vault, you should see the secret on the web page. Principal Used will show type "VisualStudio" and your user account.
 
+For more information about .NET 4.7.1 Key Vault and Secret configuration builders, see [Announcing .NET 4.7.1 Tools for the Cloud](https://blogs.msdn.microsoft.com/webdev/2017/11/17/announcing-net-4-7-1-tools-for-the-cloud/)
 
 ## Step 6: Deploy the Web App to Azure
 Use any of the methods outlined on [Deploy your app to Azure App Service](https://docs.microsoft.com/en-us/azure/app-service-web/web-sites-deploy) to publish the Web App to Azure.
