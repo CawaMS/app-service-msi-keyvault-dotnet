@@ -18,7 +18,7 @@ With [Managed Service Identity (MSI)](https://docs.microsoft.com/en-us/azure/app
 To run and deploy this sample, you need the following:
 1. An Azure subscription to create an App Service and a Key Vault.
     * [Create your Azure free account today](https://azure.microsoft.com/en-us/free/)
-2. [Visual Studio 2017 update 5](https://www.visualstudio.com/)
+2. [Visual Studio 2017 update 5](https://www.visualstudio.com/vs/preview/)
     * Install Web development and Azure development workloads.    
 3. [Azure Services Authentication Extension](https://go.microsoft.com/fwlink/?linkid=862354)
 4. [.NET Framework 4.7.1](https://www.microsoft.com/en-us/download/details.aspx?id=56115)
