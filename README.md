@@ -7,12 +7,12 @@ author: varunsh-msft
 # Use Key Vault from App Service with Managed Service Identity
 
 ## Background
-For Service-to-Azure-Service authentication, the approach so far involved creating an Azure AD application and associated credential, and using that credential to get a token. The sample [here](https://docs.microsoft.com/en-us/azure/key-vault/key-vault-use-from-web-application) shows how this approach is used to authenticate to Azure Key Vault from a Web App. While this approach works well, there are two shortcomings:
+For Service-to-Azure-Service authentication, the approach so far involved creating an Azure AD application and associated credential, and using that credential to get a token. The sample [here](https://docs.microsoft.com/en-us/azure/key-vault/key-vault-use-from-web-application) shows how this approach is used to authenticate to Azure Key Vault from a Web App. While this approach works well, there are three shortcomings:
 1. The Azure AD application credentials are typically hard coded in source code. Developers tend to push the code to source repositories as-is, which leads to credentials in source.
 2. The Azure AD application credentials expire, and so need to be renewed, else can lead to application downtime.
 3. Requires changing source code. Ideally we want to keep all the changes at configuration level and minimize the amount of source code change.
 
-With [Managed Service Identity (MSI)](https://docs.microsoft.com/en-us/azure/app-service/app-service-managed-service-identity), and new ASP.NET configuration builders, all these problems are solved. This sample shows how a Web App can authenticate to Azure Key Vault without the need to manage Azure AD credentials and to change source code.
+With [Managed Service Identity (MSI)](https://docs.microsoft.com/en-us/azure/app-service/app-service-managed-service-identity), and new ASP.NET configuration builders, all these problems are solved. This sample shows how a Web App can authenticate to Azure Key Vault without the need to manage Azure AD credentials and to change source code. To simplify the scenario, you will be instructed to provision a dummy secret in Key Vault, so you can see how your app can access that secret easily. In reality, we consider secrets to be something of value to your asset and needs to be privately, such as connection strings, API Keys, passwords, and so on.
 
 ## Prerequisites
 To run and deploy this sample, you need the following:
